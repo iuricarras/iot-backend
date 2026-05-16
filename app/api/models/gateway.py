@@ -1,0 +1,28 @@
+class Gateway:
+    def __init__(self, userID, linkCode, controllers=[]):
+        self.userID = userID
+        self.linkCode = linkCode
+        self.controllers = controllers
+
+    @staticmethod
+    def from_dict(source):
+        # ...
+        return Gateway(
+            userID=source.get("userID"),
+            linkCode=source.get("linkCode"),
+            controllers=source.get("controllers", []),
+        )
+    def to_dict(self):
+        # ...
+        return {
+            "userID": self.userID,
+            "linkCode": self.linkCode,
+            "controllers": self.controllers,
+        }
+
+    def __repr__(self):
+        return f"Gateway(\
+                userID={self.userID}, \
+                linkCode={self.linkCode}, \
+                controllers={self.controllers}\
+            )"
