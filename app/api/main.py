@@ -27,8 +27,8 @@ def get_gateways():
 @api_bp.get('/gateways/<user_id>')
 def get_gateway_by_user_id(user_id):
     if not verify_user(request.headers.get('Authorization'), user_id):
-        return {"message": "Unauthorized"}, 401@api_bp.get('/gateways')
-def get_gateways():
+        return {"message": "Unauthorized"}, 401
+
     gateways_ref = db.collection('gateways')
     docs = gateways_ref.stream()
 
@@ -64,7 +64,6 @@ def update_gateway(gateway_id):
             return {"message": "Invalid link code"}, 400
     
         data['linked'] = True
-        
     elif not verify_user(request.headers.get('Authorization'), gateway_data['userID']):
         return {"message": "Unauthorized"}, 401
 
