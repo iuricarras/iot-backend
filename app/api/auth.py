@@ -1,4 +1,5 @@
 from flask import request
+from firebase_admin import auth
 from . import api_bp
 
 def verify_user(id_token, user_id=None) -> bool:
