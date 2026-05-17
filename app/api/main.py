@@ -27,7 +27,14 @@ def get_gateways():
 @api_bp.get('/gateways/<user_id>')
 def get_gateway_by_user_id(user_id):
     if not verify_user(request.headers.get('Authorization'), user_id):
-        return {"message": "Unauthorized"}, 401
+        return {"message": "Unauthorized"}, 401@api_bp.get('/gateways')
+def get_gateways():
+    gateways_ref = db.collection('gateways')
+    docs = gateways_ref.stream()
+
+    gateways = [Gateway.from_dict(doc.to_dict()) for doc in docs]
+
+    return {"gateways": [gateway.to_dict() for gateway in gateways]}, 200
     gateways_ref = db.collection('gateways')
     query = gateways_ref.where('userID', '==', user_id).stream()
 
@@ -40,7 +47,6 @@ def get_gateway_by_user_id(user_id):
 
 @api_bp.patch('/gateways/<gateway_id>')
 def update_gateway(gateway_id):
-
     data = request.get_json()
     gateway_ref = db.collection('gateways').document(gateway_id)
     gateway_doc = gateway_ref.get()
@@ -49,9 +55,19 @@ def update_gateway(gateway_id):
         return {"message": "Gateway not found"}, 404
 
     gateway_data = gateway_doc.to_dict()
-    if not verify_user(request.headers.get('Authorization'), gateway_data['userID']):
-        return {"message": "Unauthorized"}, 401
+
+    if not gateway_data['linked']:
+        if not verify_user(request.headers.get('Authorization'), data['userID']):
+            return {"message": "Unauthorized"}, 401
+
+        if data['linkCode'] != gateway_data['linkCode']:
+            return {"message": "Invalid link code"}, 400
     
+        data['linked'] = True
+        
+    elif not verify_user(request.headers.get('Authorization'), gateway_data['userID']):
+        return {"message": "Unauthorized"}, 401
+
     gateway_ref.update(data)
 
     return {"message": "Gateway updated successfully"}, 200
@@ -74,19 +90,19 @@ def delete_gateway(gateway_id):
     return {"message": "Gateway deleted successfully"}, 200
 
 
-@api_bp.get('/datas')
-def get_datas():
-    datas_ref = db.collection('datas')
-    docs = datas_ref.stream()
+@api_bp.get('/data')
+def get_data():
+    data_ref = db.collection('data')
+    docs = data_ref.stream()
 
-    datas = [doc.to_dict() for doc in docs]
+    data = [doc.to_dict() for doc in docs]
 
-    return {"datas": datas}, 200
+    return {"data": data}, 200
 
-@api_bp.get('/datas/<gateway_id>')
-def get_datas_by_gateway_id(gateway_id):
-    datas_ref = db.collection('datas')
-    query = datas_ref.where('gatewayID', '==', gateway_id).stream()
+@api_bp.get('/data/<gateway_id>')
+def get_data_by_gateway_id(gateway_id):
+    data_ref = db.collection('data')
+    query = data_ref.where('gatewayID', '==', gateway_id).stream()
 
     gateway_ref = db.collection('gateways').document(gateway_id)
     gateway_doc = gateway_ref.get()
@@ -97,25 +113,25 @@ def get_datas_by_gateway_id(gateway_id):
     if not verify_user(request.headers.get('Authorization'), gateway_doc.to_dict()['userID']):
         return {"message": "Unauthorized"}, 401
 
-    datas = [doc.to_dict() for doc in query]
+    data = [doc.to_dict() for doc in query]
 
-    if not datas:
+    if not data:
         return {"message": "No data found for this gateway ID"}, 404
 
-    return {"datas": datas}, 200
+    return {"data": data}, 200
 
-@api_bp.post('/datas')
+@api_bp.post('/data')
 def create_data():
     data = request.get_json()
     
-    data_ref = db.collection('datas')
+    data_ref = db.collection('data')
     data_ref.add(data)
 
     return {"message": "Data created successfully"}, 201
 
 
-@api_bp.get('/users/<user_id>/datas')
-def get_datas_by_user_id(user_id):
+@api_bp.get('/users/<user_id>/data')
+def get_data_by_user_id(user_id):
     if not verify_user(request.headers.get('Authorization'), user_id):
         return {"message": "Unauthorized"}, 401
 
@@ -124,16 +140,16 @@ def get_datas_by_user_id(user_id):
 
     gateway_ids = [doc.id for doc in query]
 
-    datas_ref = db.collection('datas')
-    datas = []
+    data_ref = db.collection('data')
+    data = []
     for gateway_id in gateway_ids:
-        data_query = datas_ref.where('gatewayID', '==', gateway_id).stream()
-        datas.extend([doc.to_dict() for doc in data_query])
+        data_query = data_ref.where('gatewayID', '==', gateway_id).stream()
+        data.extend([doc.to_dict() for doc in data_query])
 
-    if not datas:
+    if not data:
         return {"message": "No data found for this user ID"}, 404
 
-    return {"datas": datas}, 200
+    return {"data": data}, 200
 
 @api_bp.get('/users/<user_id>/gateways')
 def get_gateways_by_user_id(user_id):
