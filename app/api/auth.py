@@ -1,6 +1,10 @@
 from flask import request
 from firebase_admin import auth
 from . import api_bp
+import json, requests
+import dotenv
+
+FIREBASE_WEB_API_KEY = dotenv.get_key(".env", "FIREBASE_WEB_API_KEY");
 
 def verify_user(id_token, user_id=None) -> bool:
     try:
@@ -12,21 +16,21 @@ def verify_user(id_token, user_id=None) -> bool:
         print(f"Error verifying ID token: {e}")
         return False
 
-def sign_in_with_email_and_password(email, password, return_secure_token=True):
+def sign_in_with_email_and_password(email, password):
     payload = json.dumps(
         {
             "email": email,
             "password": password,
-            "return_secure_token": return_secure_token,
+            "returnSecureToken": True,
         }
     )
-    # FIREBASE_WEB_API_KEY = ''
     rest_api_url = (
         "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword"
     )
 
     r = requests.post(rest_api_url, params={"key": FIREBASE_WEB_API_KEY}, data=payload)
 
+    print(f"Firebase sign-in response: {r.status_code} - {r.text}")
     return r.json()
 
 
@@ -37,7 +41,7 @@ def login():
 
     try:
         user = sign_in_with_email_and_password(email, password)
-        return {"message": "Login successful", "uid": user["localId"]}, 200
+        return {"message": "Login successful", "uid": user["localId"], "token": user["idToken"]}, 200
     except Exception as e:
         return {"message": "Error logging in", "error": str(e)}, 400
 

@@ -11,7 +11,6 @@ class Gateway:
         return Gateway(
             userID=source.get("userID"),
             linkCode=source.get("linkCode"),
-            linked=source.get("linked", False),
             controllers=source.get("controllers", []),
         )
     def to_dict(self):

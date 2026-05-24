@@ -18,12 +18,14 @@
           python-pkgs.flask
           python-pkgs.flask-cors
           python-pkgs.firebase-admin
-        #  python-pkgs.pip
+          python-pkgs.python-dotenv
+          python-pkgs.pip
         ]))
       ];
       shellHook = ''
         export FLASK_APP=app
         export FLASK_ENV=development
+        export FLASK_DEBUG=True
       '';
     };
   };

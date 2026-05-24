@@ -4,11 +4,15 @@ from .models.gateway import Gateway
 from .models.action import Action
 from .models.data import Data
 from .auth import verify_user
+from app import db
 
 @api_bp.post('/gateways')
 def create_gateway():
     data = request.get_json()
     
+    if "userID" not in data or not data["userID"]:
+        data["userID"] = -1
+
     gate = Gateway.from_dict(data)
 
     db.collection('gateways').add(gate.to_dict())
@@ -29,12 +33,6 @@ def get_gateway_by_user_id(user_id):
     if not verify_user(request.headers.get('Authorization'), user_id):
         return {"message": "Unauthorized"}, 401
 
-    gateways_ref = db.collection('gateways')
-    docs = gateways_ref.stream()
-
-    gateways = [Gateway.from_dict(doc.to_dict()) for doc in docs]
-
-    return {"gateways": [gateway.to_dict() for gateway in gateways]}, 200
     gateways_ref = db.collection('gateways')
     query = gateways_ref.where('userID', '==', user_id).stream()
 
@@ -150,21 +148,6 @@ def get_data_by_user_id(user_id):
 
     return {"data": data}, 200
 
-@api_bp.get('/users/<user_id>/gateways')
-def get_gateways_by_user_id(user_id):
-    if not verify_user(request.headers.get('Authorization'), user_id):
-        return {"message": "Unauthorized"}, 401
-
-    gateways_ref = db.collection('gateways')
-    query = gateways_ref.where('userID', '==', user_id).stream()
-
-    gateways = [Gateway.from_dict(doc.to_dict()) for doc in query]
-
-    if not gateways:
-        return {"message": "No gateway found for this user ID"}, 404
-
-    return {"gateways": [gateway.to_dict() for gateway in gateways]}, 200
-
 @api_bp.post('/actions')
 def create_action():
     data = request.get_json()
@@ -240,5 +223,90 @@ def delete_action(action_id):
     action_ref.delete()
 
     return {"message": "Action deleted successfully"}, 200
+
+@api_bp.get('/migrations/<gateway_id>')
+def get_migration_by_gateway_id(gateway_id):
+    gateway_ref = db.collection('gateways').document(gateway_id)
+    gateway_doc = gateway_ref.get()
+
+    if not gateway_doc.exists:
+        return {"message": "Gateway not found"}, 404
+
+    if not verify_user(request.headers.get('Authorization'), gateway_doc.to_dict()['userID']):
+        return {"message": "Unauthorized"}, 401
+
+    migration_ref = db.collection('migrations')
+    query = migration_ref.where('gatewayID', '==', gateway_id).stream()
+
+    migrations = [doc.to_dict() for doc in query]
+
+    if not migrations:
+        return {"message": "No migration found for this gateway ID"}, 404
+
+    return {"migrations": migrations}, 200
+
+@api_bp.post('/migrations')
+def create_migration():
+    data = request.get_json()
+
+    gateway_ref = db.collection('gateways').document(data["gateway_id"])
+    gateway_doc = gateway_ref.get()
+
+    if not gateway_doc.exists:
+        return {"message": "Gateway not found"}, 404
+
+    if not verify_user(request.headers.get('Authorization'), gateway_doc.to_dict()['userID']):
+        return {"message": "Unauthorized"}, 401
+
+
+    migration_ref = db.collection('migrations')
+    migration_ref.add(data)
+
+    return {"message": "Migration created successfully"}, 201
+
+@api_bp.delete('/migrations/<migration_id>')
+def delete_migration(migration_id):
+    migration_ref = db.collection('migrations').document(migration_id)
+    migration_doc = migration_ref.get()
+
+    if not migration_doc.exists:
+        return {"message": "Migration not found"}, 404
+
+    migration_data = migration_doc.to_dict()
+    gateway_ref = db.collection('gateways').document(migration_data['gatewayID'])
+    gateway_doc = gateway_ref.get()
+
+    if not gateway_doc.exists:
+        return {"message": "Gateway not found"}, 404
+
+    if not verify_user(request.headers.get('Authorization'), gateway_doc.to_dict()['userID']):
+        return {"message": "Unauthorized"}, 401
+    
+    migration_ref.delete()
+
+    return {"message": "Migration deleted successfully"}, 200
+
+@api_bp.patch('/migrations/<migration_id>')
+def update_migration(migration_id):
+    data = request.get_json()
+    migration_ref = db.collection('migrations').document(migration_id)
+    migration_doc = migration_ref.get()
+
+    if not migration_doc.exists:
+        return {"message": "Migration not found"}, 404
+
+    migration_data = migration_doc.to_dict()
+    gateway_ref = db.collection('gateways').document(migration_data['gatewayID'])
+    gateway_doc = gateway_ref.get()
+
+    if not gateway_doc.exists:
+        return {"message": "Gateway not found"}, 404
+
+    if not verify_user(request.headers.get('Authorization'), gateway_doc.to_dict()['userID']):
+        return {"message": "Unauthorized"}, 401
+    
+    migration_ref.update(data)
+
+    return {"message": "Migration updated successfully"}, 200
 
 
