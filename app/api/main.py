@@ -6,6 +6,16 @@ from .models.data import Data
 from .auth import verify_user
 from app import db
 
+def verify_link_code(gateway_id, link_code):
+    gateway_ref = db.collection('gateways').document(gateway_id)
+    gateway_doc = gateway_ref.get()
+
+    if not gateway_doc.exists:
+        return False
+
+    gateway_data = gateway_doc.to_dict()
+    return gateway_data['linkCode'] == link_code
+
 @api_bp.post('/gateways')
 def create_gateway():
     data = request.get_json()
@@ -62,7 +72,7 @@ def update_gateway(gateway_id):
             return {"message": "Invalid link code"}, 400
     
         data['linked'] = True
-    elif not verify_user(request.headers.get('Authorization'), gateway_data['userID']):
+    elif not verify_user(request.headers.get('Authorization'), gateway_data['userID']) or not verify_link_code(gateway_id, request.headers.get('Authorization')):
         return {"message": "Unauthorized"}, 401
 
     gateway_ref.update(data)
@@ -142,7 +152,6 @@ def get_data_by_user_id(user_id):
     for gateway_id in gateway_ids:
         data_query = data_ref.where('gatewayID', '==', gateway_id).stream()
         data.extend([doc.to_dict() for doc in data_query])
-
     if not data:
         return {"message": "No data found for this user ID"}, 404
 
@@ -168,7 +177,7 @@ def get_actions_by_gateway_id(gateway_id):
     if not gateway_doc.exists:
         return {"message": "Gateway not found"}, 404
 
-    if not verify_user(request.headers.get('Authorization'), gateway_doc.to_dict()['userID']):
+    if not verify_user(request.headers.get('Authorization'), gateway_doc.to_dict()['userID']) or not verify_link_code(gateway_id, request.headers.get('Authorization')):
         return {"message": "Unauthorized"}, 401
 
     actions = [doc.to_dict() for doc in query]
