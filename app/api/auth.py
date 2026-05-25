@@ -13,7 +13,6 @@ def verify_user(id_token, user_id=None) -> bool:
             return False
         return True
     except Exception as e:
-        print(f"Error verifying ID token: {e}")
         return False
 
 def sign_in_with_email_and_password(email, password):
