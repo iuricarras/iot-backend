@@ -14,20 +14,23 @@ def verify_link_code(gateway_id, link_code):
         return False
 
     gateway_data = gateway_doc.to_dict()
+
     return gateway_data['linkCode'] == link_code
 
 @api_bp.post('/gateways')
 def create_gateway():
     data = request.get_json()
+    gateway_id = data.get("id")
     
     if "userID" not in data or not data["userID"]:
-        data["userID"] = -1
+        data["userID"] = '-1'
 
     gate = Gateway.from_dict(data)
 
-    db.collection('gateways').add(gate.to_dict())
+    # db.collection('gateways').add(gate.to_dict())
+    db.collection('gateways').document(gateway_id).set(gate.to_dict())
 
-    return {"message": "Gateway created successfully"}, 201
+    return {"message": "Gateway created successfully", "id": gateway_id}, 201
 
 @api_bp.get('/gateways')
 def get_gateways():
@@ -37,6 +40,25 @@ def get_gateways():
     gateways = [Gateway.from_dict(doc.to_dict()) for doc in docs]
 
     return {"gateways": [gateway.to_dict() for gateway in gateways]}, 200
+
+@api_bp.get('/gateway/<gateway_id>')
+def get_gateway_by_id(gateway_id):
+    gateway_ref = db.collection('gateways').document(gateway_id)
+    gateway_doc = gateway_ref.get()
+
+    if not gateway_doc.exists:
+        return {"message": "Gateway not found"}, 404
+
+    gateway_data = gateway_doc.to_dict()
+    
+    link_code = request.headers.get('Authorization')
+    if link_code:
+        if not verify_link_code(gateway_id, link_code):
+            return {"message": "Unauthorized"}, 401
+    
+    gateway_data['id'] = gateway_id
+    
+    return {"gateway": gateway_data}, 200
 
 @api_bp.get('/gateways/<user_id>')
 def get_gateway_by_user_id(user_id):
@@ -72,8 +94,10 @@ def update_gateway(gateway_id):
             return {"message": "Invalid link code"}, 400
     
         data['linked'] = True
-    elif not verify_user(request.headers.get('Authorization'), gateway_data['userID']) or not verify_link_code(gateway_id, request.headers.get('Authorization')):
-        return {"message": "Unauthorized"}, 401
+    else:
+        # Aceitar linkCode OU userToken
+        if not (verify_user(request.headers.get('Authorization'), gateway_data['userID']) or verify_link_code(gateway_id, request.headers.get('Authorization'))):
+            return {"message": "Unauthorized"}, 401
 
     gateway_ref.update(data)
 
@@ -117,7 +141,8 @@ def get_data_by_gateway_id(gateway_id):
     if not gateway_doc.exists:
         return {"message": "Gateway not found"}, 404
 
-    if not verify_user(request.headers.get('Authorization'), gateway_doc.to_dict()['userID']):
+    # Aceitar linkCode OU userToken
+    if not (verify_user(request.headers.get('Authorization'), gateway_doc.to_dict()['userID']) or verify_link_code(gateway_id, request.headers.get('Authorization'))):
         return {"message": "Unauthorized"}, 401
 
     data = [doc.to_dict() for doc in query]
@@ -177,7 +202,8 @@ def get_actions_by_gateway_id(gateway_id):
     if not gateway_doc.exists:
         return {"message": "Gateway not found"}, 404
 
-    if not verify_user(request.headers.get('Authorization'), gateway_doc.to_dict()['userID']) or not verify_link_code(gateway_id, request.headers.get('Authorization')):
+    # Aceitar linkCode OU userToken
+    if not (verify_user(request.headers.get('Authorization'), gateway_doc.to_dict()['userID']) or verify_link_code(gateway_id, request.headers.get('Authorization'))):
         return {"message": "Unauthorized"}, 401
 
     actions = [doc.to_dict() for doc in query]
