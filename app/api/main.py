@@ -60,7 +60,7 @@ def get_gateway_by_id(gateway_id):
     
     return {"gateway": gateway_data}, 200
 
-@api_bp.get('/gateways/<user_id>')
+@api_bp.get('/users/<user_id>/gateways')
 def get_gateway_by_user_id(user_id):
     if not verify_user(request.headers.get('Authorization'), user_id):
         return {"message": "Unauthorized"}, 401
